@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A B Karnataka Fish Stall – Fresh Catch Daily</title>
+<style>
+:root{--navy:#0b3c5d;--teal:#1a8fa3;--coral:#ff6b4a;--bg:#f5fafc;--ink:#12303f}
+*{box-sizing:border-box;margin:0}html{scroll-behavior:smooth}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+.hero{min-height:88vh;display:grid;place-items:center;text-align:center;color:#fff;padding:24px;
+background:linear-gradient(rgba(6,40,61,.55),rgba(6,40,61,.75)),radial-gradient(circle at 20% 20%,#2bb3c9,#0b3c5d 70%)}
+.hero h1{font-size:clamp(2.2rem,7vw,4.5rem);line-height:1.1}.hero p{font-size:1.2rem;margin:14px 0 26px;opacity:.95}
+.hero .em{font-size:3rem}
+.btn{display:inline-block;background:var(--coral);color:#fff;border:0;padding:14px 30px;border-radius:999px;font-size:1.05rem;font-weight:600;cursor:pointer;text-decoration:none}
+.btn:hover{filter:brightness(1.08)}
+section{max-width:1100px;margin:auto;padding:48px 16px}h2{font-size:1.7rem;margin-bottom:18px;color:var(--navy)}
+.car{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:12px}
+.card{flex:0 0 240px;scroll-snap-align:start;background:#fff;border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.08);overflow:hidden}
+.card img,.ph{width:100%;height:150px;object-fit:cover;display:grid;place-items:center;font-size:4rem;background:#dff1f5}
+.card div.b{padding:14px}.price{font-weight:700;color:var(--navy)}
+.tag{display:inline-block;margin-top:8px;padding:3px 10px;border-radius:99px;font-size:.8rem;font-weight:600}
+.in{background:#d9f5e3;color:#11723a}.out{background:#fde0dc;color:#b3261e}.card.o{opacity:.7}
+form{background:#fff;padding:20px;border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.08);display:grid;gap:14px}
+label{font-weight:600;font-size:.9rem}
+input,textarea{width:100%;padding:12px;border:1px solid #c5d6dd;border-radius:10px;font:inherit}
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef3f5}
+.row span{flex:1}.row input[type=number]{width:80px}.row input[type=checkbox]{width:20px;height:20px}
+.pay{display:flex;gap:14px;flex-wrap:wrap}.pay label{font-weight:500}.pay input{width:auto}
+#total{font-size:1.3rem;font-weight:700;color:var(--navy)}
+#res{margin-top:18px;background:#fff;padding:20px;border-radius:16px;text-align:center;display:none;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.up{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:14px 0}.up a{background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600}
+footer{text-align:center;padding:26px;background:var(--navy);color:#fff}
+.wa{position:fixed;right:16px;bottom:16px;width:58px;height:58px;border-radius:50%;background:#25d366;display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:9;text-decoration:none;font-size:1.9rem}
+</style>
+</head>
+<body>
+<header class="hero"><div>
+  <div class="em">🐟</div>
+  <h1>A B Karnataka Fish Stall</h1>
+  <p>Fresh Catch Daily, straight from the coast.</p>
+  <a class="btn" href="#products">Shop Now</a>
+</div></header>
+
+<section id="products"><h2>Today's Catch</h2><div class="car" id="car">Loading…</div></section>
+
+<section id="order"><h2>Place Your Order</h2>
+<form id="f">
+  <div><label>Name</label><input name="name" required></div>
+  <div><label>Phone number</label><input name="phone" type="tel" inputmode="numeric" pattern="[0-9+ ]{10,14}" required></div>
+  <div><label>Delivery address</label><textarea name="address" rows="3" required></textarea></div>
+  <div><label>Select items (quantity in kg)</label><div id="items"></div></div>
+  <div id="total">Total: ₹0</div>
+  <div><label>Payment</label><div class="pay">
+    <label><input type="radio" name="pay" value="upi" checked> Pay online (UPI)</label>
+    <label><input type="radio" name="pay" value="cod"> Cash on delivery</label></div></div>
+  <button class="btn" id="sb">Place Order</button>
+  <div id="err" style="color:#b3261e"></div>
+</form>
+<div id="res"></div></section>
+
+<footer>© A B Karnataka Fish Stall · Fresh Catch Daily</footer>
+<a class="wa" id="wa" href="#" target="_blank" aria-label="Chat on WhatsApp">💬</a>
+
+<script>
+const $=s=>document.querySelector(s),esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let P=[],WA='';
+async function load(){
+  const d=await (await fetch('/api/products')).json();P=d.products;WA=d.wa;
+  $('#wa').href='https://wa.me/'+WA+'?text='+encodeURIComponent('Hi! I want to order fish.');
+  $('#car').innerHTML=P.map(p=>`<div class="card ${p.inStock?'':'o'}">${p.image?`<img src="${esc(p.image)}" alt="${esc(p.name)}">`:`<div class="ph">${esc(p.emoji||'🐟')}</div>`}
+  <div class="b"><b>${esc(p.name)}</b><div class="price">₹${p.price}/kg</div><span class="tag ${p.inStock?'in':'out'}">${p.inStock?'In Stock':'Out of Stock'}</span></div></div>`).join('');
+  $('#items').innerHTML=P.map(p=>`<div class="row"><input type="checkbox" data-id="${p.id}" ${p.inStock?'':'disabled'}>
+  <span>${esc(p.name)} – ₹${p.price}/kg ${p.inStock?'':'(sold out)'}</span><input type="number" min="0.25" step="0.25" value="1" data-q="${p.id}" ${p.inStock?'':'disabled'}></div>`).join('');
+}
+function chosen(){return P.filter(p=>$(`[data-id="${p.id}"]:checked`)).map(p=>({id:p.id,qty:+$(`[data-q="${p.id}"]`).value||0,price:p.price}))}
+function tot(){$('#total').textContent='Total: ₹'+chosen().reduce((a,i)=>a+i.qty*i.price,0)}
+$('#items').addEventListener('input',tot);
+$('#f').addEventListener('submit',async e=>{
+  e.preventDefault();$('#err').textContent='';const it=chosen();
+  if(!it.length)return $('#err').textContent='Please select at least one item.';
+  const f=new FormData(e.target);$('#sb').disabled=true;
+  try{
+    const r=await fetch('/api/order',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:f.get('name'),phone:f.get('phone'),address:f.get('address'),pay:f.get('pay'),items:it.map(i=>({id:i.id,qty:i.qty}))})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error);
+    const u=d.upi,g=f.get('pay')==='upi';
+    $('#res').style.display='block';
+    $('#res').innerHTML=`<h3>✅ Order ${d.id} received!</h3><p>Total: <b>₹${d.total}</b></p>`+(g?
+      `<p>Pay with your UPI app:</p><div class="up"><a href="phonepe://pay?${u}">PhonePe</a><a href="tez://upi/pay?${u}">Google Pay</a><a href="upi://pay?${u}">BharatPe</a><a href="paytmmp://pay?${u}">Paytm</a></div>
+       <p>Or scan this QR:</p><img alt="UPI QR" width="200" height="200" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('upi://pay?'+u)}">`
+      :`<p>Pay cash when your order arrives.</p>`)+
+      `<p style="margin-top:14px"><a class="btn" target="_blank" href="${d.wa}">Send order on WhatsApp</a></p>`;
+    $('#res').scrollIntoView({behavior:'smooth'});window.open(d.wa,'_blank');e.target.reset();tot();
+  }catch(x){$('#err').textContent=x.message||'Something went wrong.'}
+  $('#sb').disabled=false;
+});
+load();
+</script>
+</body>
+</html>

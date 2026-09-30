@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin – A B Karnataka Fish Stall</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#f5fafc;margin:0;padding:16px;color:#12303f}
+.w{max-width:760px;margin:auto}.c{background:#fff;padding:16px;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:14px}
+input{padding:10px;border:1px solid #c5d6dd;border-radius:8px;font:inherit;margin:4px 0;width:100%}
+button{background:#0b3c5d;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;font:inherit;margin:2px}
+button.d{background:#b3261e}button.s{background:#11723a}button.o{background:#777}
+.p{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #eef3f5;padding:10px 0}
+.p img,.p .e{width:56px;height:56px;object-fit:cover;border-radius:8px;background:#dff1f5;display:grid;place-items:center;font-size:1.8rem}
+.p .i{flex:1;min-width:140px}
+</style></head><body><div class="w">
+<h1>🐟 Admin Panel</h1>
+<div class="c" id="login"><input id="pw" type="password" placeholder="Admin password"><button onclick="login()">Login</button><div id="le" style="color:#b3261e"></div></div>
+<div id="app" style="display:none">
+  <div class="c"><h3 id="ft">Add product</h3>
+    <input id="n" placeholder="Name (e.g. Pomfret)"><input id="pr" type="number" placeholder="Price per kg (₹)">
+    <input id="em" placeholder="Emoji fallback (optional) 🐟"><input id="im" type="file" accept="image/*">
+    <label><input id="st" type="checkbox" checked style="width:auto"> In stock</label><br>
+    <button onclick="saveP()">Save</button><button class="o" onclick="reset()">Clear</button></div>
+  <div class="c" id="list"></div>
+  <button class="o" onclick="sessionStorage.clear();location.reload()">Logout</button>
+</div></div>
+<script>
+const $=s=>document.getElementById(s),esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let T=sessionStorage.getItem('t'),P=[],edit=null;
+const H=()=>({'x-token':T});
+async function login(){
+  const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('pw').value})});
+  if(!r.ok)return $('le').textContent='Wrong password';
+  T=(await r.json()).token;sessionStorage.setItem('t',T);init();
+}
+async function init(){
+  if(!T)return;$('login').style.display='none';$('app').style.display='block';
+  P=(await (await fetch('/api/products')).json()).products;
+  $('list').innerHTML=P.map(p=>`<div class="p">${p.image?`<img src="${esc(p.image)}">`:`<div class="e">${esc(p.emoji||'🐟')}</div>`}
+  <div class="i"><b>${esc(p.name)}</b><br>₹${p.price}/kg · ${p.inStock?'In stock':'Sold out'}</div>
+  <button class="${p.inStock?'o':'s'}" onclick="tog(${p.id},${!p.inStock})">${p.inStock?'Mark sold out':'Mark available'}</button>
+  <button onclick="ed(${p.id})">Edit</button><button class="d" onclick="del(${p.id})">Delete</button></div>`).join('')||'No products yet.';
+}
+function ed(id){const p=P.find(x=>x.id===id);edit=id;$('ft').textContent='Edit: '+p.name;$('n').value=p.name;$('pr').value=p.price;$('em').value=p.emoji||'';$('st').checked=p.inStock;scrollTo(0,0)}
+function reset(){edit=null;$('ft').textContent='Add product';['n','pr','em','im'].forEach(i=>$(i).value='');$('st').checked=true}
+async function saveP(){
+  const f=new FormData();f.append('name',$('n').value);f.append('price',$('pr').value);f.append('emoji',$('em').value);f.append('inStock',$('st').checked);
+  if($('im').files[0])f.append('image',$('im').files[0]);
+  const r=await fetch('/api/admin/products'+(edit?'/'+edit:''),{method:edit?'PUT':'POST',headers:H(),body:f});
+  if(r.status===401)return sessionStorage.clear(),location.reload();
+  reset();init();
+}
+async function tog(id,v){const f=new FormData();f.append('inStock',v);await fetch('/api/admin/products/'+id,{method:'PUT',headers:H(),body:f});init()}
+async function del(id){if(confirm('Delete this product?')){await fetch('/api/admin/products/'+id,{method:'DELETE',headers:H()});init()}}
+init();
+</script></body></html>
