@@ -1,0 +1,2521 @@
+Here is the complete full-stack web application for **A B Karnataka Fish Stall**. The codebase includes a Node.js + Express backend with JSON Web Token (JWT) authentication, static asset serving, RESTful endpoints, and a front-end HTML/CSS/JavaScript interface.
+### File Structure
+```text
+ab-karnataka-fish-stall/
+├── package.json
+├── server.js
+├── .env
+└── public/
+    ├── index.html
+    ├── style.css
+    └── app.js
+
+```
+### 1. package.json
+```json
+{
+  "name": "ab-karnataka-fish-stall",
+  "version": "1.0.0",
+  "description": "Full stack e-commerce web application for A B Karnataka Fish Stall",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
+
+```
+### 2. .env
+```env
+PORT=3000
+OWNER_EMAIL=htaj.200514@gmail.com
+OWNER_PHONE=919876543210
+JWT_SECRET=karnataka_fish_stall_secret_jwt_key_2026
+
+```
+### 3. server.js
+```javascript
+const express = require('express');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const path = require('path');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const OWNER_EMAIL = process.env.OWNER_EMAIL || 'htaj.200514@gmail.com';
+const OWNER_PHONE = process.env.OWNER_PHONE || '919876543210';
+const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// In-Memory Database
+let products = [
+  {
+    id: 1,
+    name: "Fresh Indian Mackerel (Bangda)",
+    price: 280,
+    inStock: true,
+    image: "https://i.ibb.co/1G06s1Br/Whats-App-Image-2026-09-30-at-5-21-19-AM.jpg"
+  },
+  {
+    id: 2,
+    name: "Rohtas Freshwater Fish (Rohtee)",
+    price: 320,
+    inStock: true,
+    image: "https://i.ibb.co/yBpjnyjT/Whats-App-Image-2026-09-30-at-5-21-18-AM-2.jpg"
+  },
+  {
+    id: 3,
+    name: "King Fish / Seer Fish (Anjal)",
+    price: 850,
+    inStock: true,
+    image: "https://i.ibb.co/8D37QmKD/Whats-App-Image-2026-09-30-at-5-21-18-AM-1.jpg"
+  },
+  {
+    id: 4,
+    name: "Silver Pomfret (Manji)",
+    price: 950,
+    inStock: true,
+    image: "https://i.ibb.co/S70yF62y/Whats-App-Image-2026-09-30-at-5-21-18-AM.jpg"
+  },
+  {
+    id: 5,
+    name: "Red Snapper (Rani Meenu)",
+    price: 480,
+    inStock: true,
+    image: "https://i.ibb.co/fVhN2p65/Whats-App-Image-2026-09-30-at-5-21-17-AM-2.jpg"
+  },
+  {
+    id: 6,
+    name: "Hilsa / Ilish",
+    price: 1100,
+    inStock: true,
+    image: "https://i.ibb.co/xnFVrbK/Whats-App-Image-2026-09-30-at-5-21-17-AM-1.jpg"
+  },
+  {
+    id: 7,
+    name: "Milkfish (Poomeen)",
+    price: 360,
+    inStock: false,
+    image: "https://i.ibb.co/dwS0fFSN/Whats-App-Image-2026-09-30-at-5-21-17-AM.jpg"
+  },
+  {
+    id: 8,
+    name: "Small Catfish (Tengra)",
+    price: 300,
+    inStock: true,
+    image: "https://i.ibb.co/Mk1SjgQ9/Whats-App-Image-2026-09-30-at-5-21-16-AM-1.jpg"
+  },
+  {
+    id: 9,
+    name: "Freshwater Anchovies (Nethili)",
+    price: 240,
+    inStock: true,
+    image: "https://i.ibb.co/cKymb5mN/Whats-App-Image-2026-09-30-at-5-21-16-AM.jpg"
+  }
+];
+
+let orders = [];
+
+// Authentication Middleware
+const authenticateOwner = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ success: false, message: "Unauthorized: Access denied." });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err || user.email !== OWNER_EMAIL || user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: "Unauthorized: Only registered store owners can access this portal." });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// Authentication Routes
+app.post('/api/auth/login', (req, res) => {
+  const { email, password, role } = req.body;
+
+  if (role === 'admin') {
+    if (email.trim().toLowerCase() !== OWNER_EMAIL.toLowerCase()) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Unauthorized: Only registered store owners can access this portal." 
+      });
+    }
+    
+    // In production, use bcrypt password validation.
+    if (password !== 'admin123') {
+      return res.status(401).json({ success: false, message: "Invalid Owner Password." });
+    }
+
+    const token = jwt.sign({ email, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+    return res.json({ success: true, token, role: 'admin', ownerEmail: OWNER_EMAIL });
+  } 
+  
+  if (role === 'customer') {
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required." });
+    }
+    const token = jwt.sign({ email, role: 'customer' }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ success: true, token, role: 'customer', email });
+  }
+
+  return res.status(400).json({ success: false, message: "Invalid role specified." });
+});
+
+// Public Product Routes
+app.get('/api/products', (req, res) => {
+  res.json(products);
+});
+
+// Public Order Placement
+app.post('/api/orders', (req, res) => {
+  const { customer, items, total, paymentMethod } = req.body;
+  if (!customer || !items || items.length === 0) {
+    return res.status(400).json({ success: false, message: "Invalid order details." });
+  }
+
+  const newOrder = {
+    id: 'ORD-' + Date.now(),
+    customer,
+    items,
+    total,
+    paymentMethod,
+    status: 'Pending',
+    createdAt: new Date()
+  };
+
+  orders.unshift(newOrder);
+
+  // Return WhatsApp link payload
+  let itemListStr = items.map(i => `• ${i.name} (${i.qty}kg) - ₹${i.price * i.qty}`).join('\n');
+  let waMessage = `*NEW ORDER ALERT - A B Karnataka Fish Stall*\n\n` +
+    `*Order ID:* ${newOrder.id}\n` +
+    `*Customer Name:* ${customer.name}\n` +
+    `*Phone:* ${customer.phone}\n` +
+    `*Address:* ${customer.address}\n` +
+    `*Payment Method:* ${paymentMethod}\n\n` +
+    `*Items Ordered:*\n${itemListStr}\n\n` +
+    `*Total Amount:* ₹${total}`;
+
+  const waUrl = `https://wa.me/${OWNER_PHONE}?text=${encodeURIComponent(waMessage)}`;
+
+  res.json({ 
+    success: true, 
+    orderId: newOrder.id, 
+    whatsappUrl: waUrl,
+    message: "Order placed successfully! Order notification queued for store owner." 
+  });
+});
+
+// Protected Admin API Routes
+app.get('/api/admin/orders', authenticateOwner, (req, res) => {
+  res.json(orders);
+});
+
+app.post('/api/admin/products', authenticateOwner, (req, res) => {
+  const { name, price, inStock, image } = req.body;
+  const newProduct = {
+    id: Date.now(),
+    name,
+    price: parseFloat(price),
+    inStock: Boolean(inStock),
+    image
+  };
+  products.push(newProduct);
+  res.json({ success: true, product: newProduct });
+});
+
+app.put('/api/admin/products/:id', authenticateOwner, (req, res) => {
+  const id = parseInt(req.params.id);
+  const index = products.findIndex(p => p.id === id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: "Product not found." });
+  }
+
+  products[index] = { ...products[index], ...req.body };
+  res.json({ success: true, product: products[index] });
+});
+
+app.delete('/api/admin/products/:id', authenticateOwner, (req, res) => {
+  const id = parseInt(req.params.id);
+  products = products.filter(p => p.id !== id);
+  res.json({ success: true, message: "Product deleted." });
+});
+
+// Serve Single Page Application
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Owner Email configured as: ${OWNER_EMAIL}`);
+});
+
+```
+### 4. public/index.html
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A B Karnataka Fish Stall - Fresh Catch Daily</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="https://share.google/IbxEhleMrUJzIce6G" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <img src="https://share.google/IbxEhleMrUJzIce6G" alt="Logo" class="logo-img" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3082/3082060.png'">
+        <span class="brand-name">A B Karnataka Fish Stall</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#hero">Home</a>
+        <a href="#products">Fresh Fish</a>
+        <a href="#checkout">Cart & Checkout</a>
+        <span id="user-status-badge" class="badge text-hidden">Logged In</span>
+        <button id="admin-panel-btn" class="admin-nav-btn hidden" onclick="toggleAdminView()">Owner Dashboard</button>
+        <button id="logout-btn" class="logout-btn hidden" onclick="handleLogout()">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Login Overlay / Dual Row Login Form -->
+  <section id="auth-section" class="auth-wrapper">
+    <div class="auth-container">
+      <h2>Welcome to A B Karnataka Fish Stall</h2>
+      <p class="auth-subtitle">Please select your login type to enter the marketplace</p>
+
+      <!-- Row 1: Admin / Owner Login -->
+      <div class="login-row admin-row">
+        <div class="row-header">
+          <i class="fa-solid fa-user-shield"></i>
+          <h3>Row 1: Admin / Owner Login</h3>
+        </div>
+        <form id="admin-login-form" onsubmit="handleLogin(event, 'admin')">
+          <div class="form-group">
+            <input type="email" id="admin-email" placeholder="Owner Email ID" required>
+          </div>
+          <div class="form-group">
+            <input type="password" id="admin-password" placeholder="Password (admin123)" required>
+          </div>
+          <button type="submit" class="btn btn-admin">Login as Store Owner</button>
+        </form>
+      </div>
+
+      <div class="divider">OR</div>
+
+      <!-- Row 2: Customer Login -->
+      <div class="login-row customer-row">
+        <div class="row-header">
+          <i class="fa-solid fa-cart-shopping"></i>
+          <h3>Row 2: Customer Login</h3>
+        </div>
+        <form id="customer-login-form" onsubmit="handleLogin(event, 'customer')">
+          <div class="form-group">
+            <input type="email" id="customer-email" placeholder="Enter Your Email ID" required>
+          </div>
+          <div class="form-group">
+            <input type="password" id="customer-password" placeholder="Enter Password" required>
+          </div>
+          <button type="submit" class="btn btn-customer">Login as Customer</button>
+        </form>
+      </div>
+
+      <div id="auth-error-msg" class="error-msg hidden"></div>
+    </div>
+  </section>
+
+  <!-- Main Storefront Application -->
+  <main id="app-content" class="hidden">
+
+    <!-- Hero Section -->
+    <section id="hero" class="hero-section">
+      <div class="hero-overlay">
+        <h1>A B Karnataka Fish Stall - Fresh Catch Daily</h1>
+        <p>Premium coastal & freshwater fish delivered fresh to your doorstep.</p>
+        <a href="#products" class="btn btn-primary hero-btn">Shop Now</a>
+      </div>
+    </section>
+
+    <!-- Product Section & Carousel -->
+    <section id="products" class="products-section">
+      <div class="section-header">
+        <h2>Today's Fresh Stock</h2>
+        <p>Scroll horizontally to view our available coastal catches</p>
+      </div>
+      
+      <div class="carousel-wrapper">
+        <button class="carousel-arrow left-arrow" onclick="scrollCarousel(-300)"><i class="fa-solid fa-chevron-left"></i></button>
+        <div class="product-carousel" id="product-carousel-container">
+          <!-- Product cards rendered dynamically -->
+        </div>
+        <button class="carousel-arrow right-arrow" onclick="scrollCarousel(300)"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </section>
+
+    <!-- Cart & Checkout Section -->
+    <section id="checkout" class="checkout-section">
+      <div class="container grid-2-col">
+        
+        <!-- Cart Overview -->
+        <div class="cart-box">
+          <h3><i class="fa-solid fa-basket-shopping"></i> Your Shopping Basket</h3>
+          <div id="cart-items-container" class="cart-items">
+            <p class="empty-cart-text">Your basket is empty. Select fresh fish above to start ordering!</p>
+          </div>
+          <div class="cart-summary">
+            <div class="summary-line">
+              <span>Total Weight / Subtotal:</span>
+              <strong id="cart-total-price">₹0</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Checkout Form -->
+        <div class="checkout-box">
+          <h3><i class="fa-solid fa-truck-fast"></i> Delivery & Payment Details</h3>
+          <form id="order-form" onsubmit="submitOrder(event)">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" id="cust-name" placeholder="Enter your full name" required>
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" id="cust-phone" placeholder="10-digit mobile number" pattern="[0-9]{10}" required>
+            </div>
+            <div class="form-group">
+              <label>Delivery Address</label>
+              <textarea id="cust-address" rows="3" placeholder="Door No, Street, Landmark, Area" required></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label>Payment Method</label>
+              <select id="payment-method" onchange="togglePaymentUI()" required>
+                <option value="UPI">UPI Payment (GPay, PhonePe, Paytm, BharatPe)</option>
+                <option value="COD">Cash on Delivery (COD)</option>
+              </select>
+            </div>
+
+            <!-- UPI Box -->
+            <div id="upi-qr-box" class="upi-box">
+              <p>Scan & Pay via any UPI App:</p>
+              <img id="upi-qr-code" src="" alt="UPI QR Code" class="qr-img">
+              <p class="upi-id-text">UPI ID: <strong>9876543210@upi</strong></p>
+            </div>
+
+            <button type="submit" id="place-order-btn" class="btn btn-checkout">Place Order & Notify Owner</button>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Owner Admin Management Panel (Hidden by default, strictly accessible by Owner) -->
+    <section id="admin-dashboard" class="admin-section hidden">
+      <div class="container">
+        <div class="admin-header">
+          <h2><i class="fa-solid fa-user-gear"></i> Owner Dashboard & Store Management</h2>
+          <span class="owner-tag">Authenticated as: <strong id="authenticated-owner-email"></strong></span>
+        </div>
+
+        <div class="grid-2-col">
+          <!-- Inventory Editor -->
+          <div class="admin-card">
+            <h3>Add New Fish Item</h3>
+            <form id="add-product-form" onsubmit="addNewProduct(event)">
+              <div class="form-group">
+                <input type="text" id="new-p-name" placeholder="Fish Name (e.g., King Fish)" required>
+              </div>
+              <div class="form-group">
+                <input type="number" id="new-p-price" placeholder="Price per Kg (₹)" required>
+              </div>
+              <div class="form-group">
+                <input type="url" id="new-p-image" placeholder="Image URL" required>
+              </div>
+              <div class="form-group checkbox-group">
+                <label><input type="checkbox" id="new-p-stock" checked> Available in Stock</label>
+              </div>
+              <button type="submit" class="btn btn-admin">Add to Marketplace</button>
+            </form>
+          </div>
+
+          <!-- Store Product Table -->
+          <div class="admin-card">
+            <h3>Manage Current Stock & Prices</h3>
+            <div class="table-responsive">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Price/Kg</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-product-list">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Customer Orders -->
+        <div class="admin-card full-width">
+          <h3>Recent Customer Orders</h3>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Address</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Payment</th>
+                </tr>
+              </thead>
+              <tbody id="admin-orders-list">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Floating WhatsApp Contact Button -->
+  <a href="https://wa.me/919876543210" class="whatsapp-float" target="_blank" title="Chat with Store Owner">
+    <i class="fa-brands fa-whatsapp"></i>
+  </a>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
+```
+### 5. public/style.css
+```css
+:root {
+  --primary-blue: #006699;
+  --secondary-teal: #00a896;
+  --dark-ocean: #028090;
+  --light-bg: #f4f9fc;
+  --white: #ffffff;
+  --dark-text: #1d2d44;
+  --grey-border: #d0e1fd;
+  --disabled-grey: #a0aab2;
+  --danger-red: #d90429;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background-color: var(--light-bg);
+  color: var(--dark-text);
+}
+
+.container {
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Navbar */
+.navbar {
+  background-color: var(--primary-blue);
+  color: var(--white);
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.nav-container {
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #fff;
+}
+
+.brand-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav-links a {
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* Authentication Screen */
+.auth-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 85vh;
+  padding: 20px;
+}
+
+.auth-container {
+  background: var(--white);
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  max-width: 500px;
+  width: 100%;
+}
+
+.auth-container h2 {
+  text-align: center;
+  color: var(--primary-blue);
+  margin-bottom: 5px;
+}
+
+.auth-subtitle {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 25px;
+}
+
+.login-row {
+  border: 2px solid var(--grey-border);
+  padding: 18px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background-color: #f8fbfe;
+}
+
+.admin-row {
+  border-color: var(--primary-blue);
+}
+
+.customer-row {
+  border-color: var(--secondary-teal);
+}
+
+.row-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--dark-text);
+}
+
+.divider {
+  text-align: center;
+  font-weight: bold;
+  color: #888;
+  margin: 10px 0;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+/* Buttons */
+.btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-admin {
+  background-color: var(--primary-blue);
+  color: white;
+}
+
+.btn-customer {
+  background-color: var(--secondary-teal);
+  color: white;
+}
+
+.btn-primary {
+  background-color: var(--secondary-teal);
+  color: white;
+  text-align: center;
+  display: inline-block;
+  width: auto;
+  padding: 12px 28px;
+  text-decoration: none;
+  border-radius: 30px;
+}
+
+.admin-nav-btn {
+  background-color: #ff9f1c;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.logout-btn {
+  background-color: var(--danger-red);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.error-msg {
+  color: var(--danger-red);
+  background-color: #ffe6e6;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 15px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Hero Section */
+.hero-section {
+  background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://i.ibb.co/1G06s1Br/Whats-App-Image-2026-09-30-at-5-21-19-AM.jpg');
+  background-size: cover;
+  background-position: center;
+  height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: white;
+}
+
+.hero-overlay h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.hero-overlay p {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+}
+
+/* Products Section & Carousel */
+.products-section {
+  padding: 50px 20px;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.section-header h2 {
+  color: var(--primary-blue);
+  font-size: 2rem;
+}
+
+.carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.product-carousel {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 10px 5px;
+  scrollbar-width: none;
+}
+
+.product-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel-arrow {
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+  position: absolute;
+}
+
+.left-arrow { left: -15px; }
+.right-arrow { right: -15px; }
+
+.product-card {
+  min-width: 260px;
+  max-width: 260px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.product-card.out-of-stock {
+  filter: grayscale(85%);
+  opacity: 0.7;
+}
+
+.product-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.product-info {
+  padding: 15px;
+}
+
+.product-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.product-price {
+  color: var(--primary-blue);
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.stock-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.in-stock-tag { background: #e6f4ea; color: #137333; }
+.out-stock-tag { background: #fce8e6; color: #c5221f; }
+
+.btn-add-cart {
+  background: var(--dark-ocean);
+  color: white;
+}
+
+.btn-add-cart:disabled {
+  background: var(--disabled-grey);
+  cursor: not-allowed;
+}
+
+/* Grid Layouts */
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+/* Checkout Section */
+.checkout-section {
+  padding: 40px 0;
+  background-color: #eef5fc;
+}
+
+.cart-box, .checkout-box, .admin-card {
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.cart-items {
+  min-height: 150px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 15px 0;
+}
+
+.cart-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.cart-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qty-btn {
+  background: #e0e0e0;
+  border: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.cart-summary {
+  border-top: 2px solid var(--grey-border);
+  padding-top: 15px;
+  font-size: 1.1rem;
+}
+
+.upi-box {
+  background: #f0f7ff;
+  border: 1px dashed var(--primary-blue);
+  padding: 15px;
+  text-align: center;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.qr-img {
+  width: 140px;
+  height: 140px;
+  margin: 10px 0;
+}
+
+.btn-checkout {
+  background-color: var(--secondary-teal);
+  color: white;
+  font-size: 1.05rem;
+}
+
+/* Admin Dashboard */
+.admin-section {
+  padding: 40px 0;
+  background: #eaf2f8;
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.owner-tag {
+  background: var(--primary-blue);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+.full-width {
+  grid-column: span 2;
+  margin-top: 25px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.admin-table th, .admin-table td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.admin-table th {
+  background-color: var(--primary-blue);
+  color: white;
+}
+
+/* WhatsApp Floating Button */
+.whatsapp-float {
+  position: fixed;
+  width: 55px;
+  height: 55px;
+  bottom: 25px;
+  right: 25px;
+  background-color: #25d366;
+  color: #fff;
+  border-radius: 50px;
+  text-align: center;
+  font-size: 30px;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .grid-2-col, .full-width {
+    grid-template-columns: 1fr;
+    grid-column: span 1;
+  }
+  .hero-overlay h1 {
+    font-size: 1.8rem;
+  }
+  .nav-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+```
+### 6. public/app.js
+```javascript
+let cart = [];
+let productsData = [];
+let authToken = localStorage.getItem('fish_stall_token') || null;
+let userRole = localStorage.getItem('fish_stall_role') || null;
+let userEmail = localStorage.getItem('fish_stall_email') || null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  checkAuthStatus();
+  fetchProducts();
+  togglePaymentUI();
+});
+
+// Check JWT Authentication State
+function checkAuthStatus() {
+  const authSection = document.getElementById("auth-section");
+  const appContent = document.getElementById("app-content");
+  const adminNavBtn = document.getElementById("admin-panel-btn");
+  const logoutBtn = document.getElementById("logout-btn");
+  const badge = document.getElementById("user-status-badge");
+
+  if (authToken) {
+    authSection.classList.add("hidden");
+    appContent.classList.remove("hidden");
+    logoutBtn.classList.remove("hidden");
+
+    if (userRole === 'admin') {
+      adminNavBtn.classList.remove("hidden");
+      badge.textContent = `Owner: ${userEmail}`;
+      badge.classList.remove("text-hidden");
+      document.getElementById("authenticated-owner-email").textContent = userEmail;
+    } else {
+      adminNavBtn.classList.add("hidden");
+      badge.textContent = `Customer: ${userEmail}`;
+      badge.classList.remove("text-hidden");
+    }
+  } else {
+    authSection.classList.remove("hidden");
+    appContent.classList.add("hidden");
+    adminNavBtn.classList.add("hidden");
+    logoutBtn.classList.add("hidden");
+  }
+}
+
+// Login Handler
+async function handleLogin(event, role) {
+  event.preventDefault();
+  const errorBox = document.getElementById("auth-error-msg");
+  errorBox.classList.add("hidden");
+
+  let email = "";
+  let password = "";
+
+  if (role === 'admin') {
+    email = document.getElementById("admin-email").value;
+    password = document.getElementById("admin-password").value;
+  } else {
+    email = document.getElementById("customer-email").value;
+    password = document.getElementById("customer-password").value;
+  }
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, role })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      errorBox.textContent = data.message || "Login failed.";
+      errorBox.classList.remove("hidden");
+      return;
+    }
+
+    // Store Auth Data
+    authToken = data.token;
+    userRole = data.role;
+    userEmail = role === 'admin' ? data.ownerEmail : data.email;
+
+    localStorage.setItem('fish_stall_token', authToken);
+    localStorage.setItem('fish_stall_role', userRole);
+    localStorage.setItem('fish_stall_email', userEmail);
+
+    checkAuthStatus();
+  } catch (err) {
+    errorBox.textContent = "Network error. Server may be down.";
+    errorBox.classList.remove("hidden");
+  }
+}
+
+// Logout Handler
+function handleLogout() {
+  localStorage.clear();
+  authToken = null;
+  userRole = null;
+  userEmail = null;
+  document.getElementById("admin-dashboard").classList.add("hidden");
+  checkAuthStatus();
+}
+
+// Fetch Marketplace Products
+async function fetchProducts() {
+  try {
+    const res = await fetch('/api/products');
+    productsData = await res.json();
+    renderCarousel();
+    if (userRole === 'admin') {
+      renderAdminProducts();
+      fetchAdminOrders();
+    }
+  } catch (err) {
+    console.error("Failed to load products", err);
+  }
+}
+
+// Render Product Carousel
+function renderCarousel() {
+  const container = document.getElementById("product-carousel-container");
+  container.innerHTML = "";
+
+  productsData.forEach(p => {
+    const card = document.createElement("div");
+    card.className = `product-card ${!p.inStock ? 'out-of-stock' : ''}`;
+    
+    card.innerHTML = `
+      <img src="${p.image}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1534483509719-3feaee7c30da?w=400'">
+      <div class="product-info">
+        <div class="product-title">${p.name}</div>
+        <div class="product-price">₹${p.price} / kg</div>
+        <span class="stock-tag ${p.inStock ? 'in-stock-tag' : 'out-stock-tag'}">
+          ${p.inStock ? 'In Stock' : 'Out of Stock'}
+        </span>
+        <button class="btn btn-add-cart" ${!p.inStock ? 'disabled' : ''} onclick="addToCart(${p.id})">
+          ${p.inStock ? 'Add to Basket' : 'Unavailable'}
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function scrollCarousel(offset) {
+  document.getElementById("product-carousel-container").scrollBy({ left: offset, behavior: 'smooth' });
+}
+
+// Shopping Cart Functions
+function addToCart(productId) {
+  const item = productsData.find(p => p.id === productId);
+  if (!item || !item.inStock) return;
+
+  const existing = cart.find(c => c.id === productId);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({ id: item.id, name: item.name, price: item.price, qty: 1 });
+  }
+  updateCartUI();
+}
+
+function updateQty(productId, change) {
+  const existing = cart.find(c => c.id === productId);
+  if (existing) {
+    existing.qty += change;
+    if (existing.qty <= 0) {
+      cart = cart.filter(c => c.id !== productId);
+    }
+  }
+  updateCartUI();
+}
+
+function updateCartUI() {
+  const container = document.getElementById("cart-items-container");
+  const totalDisplay = document.getElementById("cart-total-price");
+
+  if (cart.length === 0) {
+    container.innerHTML = `<p class="empty-cart-text">Your basket is empty. Select fresh fish above to start ordering!</p>`;
+    totalDisplay.textContent = "₹0";
+    return;
+  }
+
+  container.innerHTML = "";
+  let total = 0;
+
+  cart.forEach(item => {
+    const itemTotal = item.price * item.qty;
+    total += itemTotal;
+
+    const row = document.createElement("div");
+    row.className = "cart-item-row";
+    row.innerHTML = `
+      <div>
+        <strong>${item.name}</strong>
+        <br><small>₹${item.price} x ${item.qty} kg</small>
+      </div>
+      <div class="cart-controls">
+        <button class="qty-btn" onclick="updateQty(${item.id}, -1)">-</button>
+        <span>${item.qty} kg</span>
+        <button class="qty-btn" onclick="updateQty(${item.id}, 1)">+</button>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+
+  totalDisplay.textContent = `₹${total}`;
+  updateQRCode(total);
+}
+
+// Payment Methods & Dynamic UPI QR Code
+function togglePaymentUI() {
+  const method = document.getElementById("payment-method").value;
+  const upiBox = document.getElementById("upi-qr-box");
+  if (method === "UPI") {
+    upiBox.classList.remove("hidden");
+    const currentTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    updateQRCode(currentTotal);
+  } else {
+    upiBox.classList.add("hidden");
+  }
+}
+
+function updateQRCode(amount) {
+  const upiId = "9876543210@upi";
+  const name = "AB Karnataka Fish Stall";
+  const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR`;
+  const qrImg = document.getElementById("upi-qr-code");
+  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`;
+}
+
+// Submit Order
+async function submitOrder(event) {
+  event.preventDefault();
+  if (cart.length === 0) {
+    alert("Please add at least one item to your cart before checking out!");
+    return;
+  }
+
+  const customer = {
+    name: document.getElementById("cust-name").value,
+    phone: document.getElementById("cust-phone").value,
+    address: document.getElementById("cust-address").value
+  };
+
+  const paymentMethod = document.getElementById("payment-method").value;
+  const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer, items: cart, total, paymentMethod })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      alert("Order placed successfully! Redirecting to WhatsApp to send order summary to store owner...");
+      window.open(data.whatsappUrl, '_blank');
+      cart = [];
+      updateCartUI();
+      document.getElementById("order-form").reset();
+    }
+  } catch (err) {
+    alert("Order submission failed. Check server connection.");
+  }
+}
+
+// Admin Panel Toggle & Functions
+function toggleAdminView() {
+  if (userRole !== 'admin') {
+    alert("Unauthorized: Only registered store owners can access this portal.");
+    return;
+  }
+  const dashboard = document.getElementById("admin-dashboard");
+  dashboard.classList.toggle("hidden");
+  if (!dashboard.classList.contains("hidden")) {
+    dashboard.scrollIntoView({ behavior: 'smooth' });
+    renderAdminProducts();
+    fetchAdminOrders();
+  }
+}
+
+function renderAdminProducts() {
+  const tbody = document.getElementById("admin-product-list");
+  tbody.innerHTML = "";
+
+  productsData.forEach(p => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${p.name}</td>
+      <td>₹<input type="number" value="${p.price}" id="price-${p.id}" style="width: 70px;"></td>
+      <td>
+        <button onclick="toggleStock(${p.id}, ${!p.inStock})" class="btn" style="padding: 4px 8px; font-size: 0.8rem; background:${p.inStock ? '#137333' : '#c5221f'}; color:white;">
+          ${p.inStock ? 'In Stock' : 'Out of Stock'}
+        </button>
+      </td>
+      <td>
+        <button onclick="updateProduct(${p.id})" style="background:#006699; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Save</button>
+        <button onclick="deleteProduct(${p.id})" style="background:#d90429; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function toggleStock(id, newStock) {
+  await updateProductOnServer(id, { inStock: newStock });
+}
+
+async function updateProduct(id) {
+  const newPrice = document.getElementById(`price-${id}`).value;
+  await updateProductOnServer(id, { price: parseFloat(newPrice) });
+}
+
+async function updateProductOnServer(id, payload) {
+  try {
+    const res = await fetch(`/api/admin/products/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      fetchProducts();
+    } else {
+      const data = await res.json();
+      alert(data.message);
+    }
+  } catch (err) {
+    console.error("Update failed", err);
+  }
+}
+
+async function deleteProduct(id) {
+  if (!confirm("Are you sure you want to delete this product?")) return;
+  try {
+    const res = await fetch(`/api/admin/products/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) fetchProducts();
+  } catch (err) {
+    console.error("Delete failed", err);
+  }
+}
+
+async function addNewProduct(event) {
+  event.preventDefault();
+  const name = document.getElementById("new-p-name").value;
+  const price = document.getElementById("new-p-price").value;
+  const image = document.getElementById("new-p-image").value;
+  const inStock = document.getElementById("new-p-stock").checked;
+
+  try {
+    const res = await fetch('/api/admin/products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ name, price, image, inStock })
+    });
+    if (res.ok) {
+      document.getElementById("add-product-form").reset();
+      fetchProducts();
+    }
+  } catch (err) {
+    console.error("Add failed", err);
+  }
+}
+
+async function fetchAdminOrders() {
+  try {
+    const res = await fetch('/api/admin/orders', {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (!res.ok) return;
+    const orders = await res.json();
+    const tbody = document.getElementById("admin-orders-list");
+    tbody.innerHTML = "";
+
+    orders.forEach(o => {
+      const itemsList = o.items.map(i => `${i.name} (${i.qty}kg)`).join(", ");
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${o.id}</td>
+        <td>${o.customer.name}</td>
+        <td>${o.customer.phone}</td>
+        <td>${o.customer.address}</td>
+        <td>${itemsList}</td>
+        <td>₹${o.total}</td>
+        <td>${o.paymentMethod}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error("Orders fetch failed", err);
+  }
+}
+
+```
+### Instructions to Run & Deploy
+ 1. Create a project folder named ab-karnataka-fish-stall and copy the files according to the structure above.
+ 2. Open your terminal inside the project directory and install dependencies:
+   ```bash
+   npm install
+   
+   ```
+ 3. Start the Node.js server:
+   ```bash
+   npm start
+   
+   ```
+ 4. Access the web app in your browser at http://localhost:3000.
+**Credentials for Testing:**
+ * **Owner Login:**
+   * Email: htaj.200514@gmail.com
+   * Password: admin123
+ * **Customer Login:**
+   * Email: Any valid email address (e.g. customer@gmail.com)
+   * Password: Any password
+Here is the complete full-stack web application for **A B Karnataka Fish Stall**. The codebase includes a Node.js + Express backend with JSON Web Token (JWT) authentication, static asset serving, RESTful endpoints, and a front-end HTML/CSS/JavaScript interface.
+### File Structure
+```text
+ab-karnataka-fish-stall/
+├── package.json
+├── server.js
+├── .env
+└── public/
+    ├── index.html
+    ├── style.css
+    └── app.js
+
+```
+### 1. package.json
+```json
+{
+  "name": "ab-karnataka-fish-stall",
+  "version": "1.0.0",
+  "description": "Full stack e-commerce web application for A B Karnataka Fish Stall",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
+
+```
+### 2. .env
+```env
+PORT=3000
+OWNER_EMAIL=htaj.200514@gmail.com
+OWNER_PHONE=919876543210
+JWT_SECRET=karnataka_fish_stall_secret_jwt_key_2026
+
+```
+### 3. server.js
+```javascript
+const express = require('express');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const path = require('path');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const OWNER_EMAIL = process.env.OWNER_EMAIL || 'htaj.200514@gmail.com';
+const OWNER_PHONE = process.env.OWNER_PHONE || '919876543210';
+const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// In-Memory Database
+let products = [
+  {
+    id: 1,
+    name: "Fresh Indian Mackerel (Bangda)",
+    price: 280,
+    inStock: true,
+    image: "https://i.ibb.co/1G06s1Br/Whats-App-Image-2026-09-30-at-5-21-19-AM.jpg"
+  },
+  {
+    id: 2,
+    name: "Rohtas Freshwater Fish (Rohtee)",
+    price: 320,
+    inStock: true,
+    image: "https://i.ibb.co/yBpjnyjT/Whats-App-Image-2026-09-30-at-5-21-18-AM-2.jpg"
+  },
+  {
+    id: 3,
+    name: "King Fish / Seer Fish (Anjal)",
+    price: 850,
+    inStock: true,
+    image: "https://i.ibb.co/8D37QmKD/Whats-App-Image-2026-09-30-at-5-21-18-AM-1.jpg"
+  },
+  {
+    id: 4,
+    name: "Silver Pomfret (Manji)",
+    price: 950,
+    inStock: true,
+    image: "https://i.ibb.co/S70yF62y/Whats-App-Image-2026-09-30-at-5-21-18-AM.jpg"
+  },
+  {
+    id: 5,
+    name: "Red Snapper (Rani Meenu)",
+    price: 480,
+    inStock: true,
+    image: "https://i.ibb.co/fVhN2p65/Whats-App-Image-2026-09-30-at-5-21-17-AM-2.jpg"
+  },
+  {
+    id: 6,
+    name: "Hilsa / Ilish",
+    price: 1100,
+    inStock: true,
+    image: "https://i.ibb.co/xnFVrbK/Whats-App-Image-2026-09-30-at-5-21-17-AM-1.jpg"
+  },
+  {
+    id: 7,
+    name: "Milkfish (Poomeen)",
+    price: 360,
+    inStock: false,
+    image: "https://i.ibb.co/dwS0fFSN/Whats-App-Image-2026-09-30-at-5-21-17-AM.jpg"
+  },
+  {
+    id: 8,
+    name: "Small Catfish (Tengra)",
+    price: 300,
+    inStock: true,
+    image: "https://i.ibb.co/Mk1SjgQ9/Whats-App-Image-2026-09-30-at-5-21-16-AM-1.jpg"
+  },
+  {
+    id: 9,
+    name: "Freshwater Anchovies (Nethili)",
+    price: 240,
+    inStock: true,
+    image: "https://i.ibb.co/cKymb5mN/Whats-App-Image-2026-09-30-at-5-21-16-AM.jpg"
+  }
+];
+
+let orders = [];
+
+// Authentication Middleware
+const authenticateOwner = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ success: false, message: "Unauthorized: Access denied." });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err || user.email !== OWNER_EMAIL || user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: "Unauthorized: Only registered store owners can access this portal." });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// Authentication Routes
+app.post('/api/auth/login', (req, res) => {
+  const { email, password, role } = req.body;
+
+  if (role === 'admin') {
+    if (email.trim().toLowerCase() !== OWNER_EMAIL.toLowerCase()) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Unauthorized: Only registered store owners can access this portal." 
+      });
+    }
+    
+    // In production, use bcrypt password validation.
+    if (password !== 'admin123') {
+      return res.status(401).json({ success: false, message: "Invalid Owner Password." });
+    }
+
+    const token = jwt.sign({ email, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+    return res.json({ success: true, token, role: 'admin', ownerEmail: OWNER_EMAIL });
+  } 
+  
+  if (role === 'customer') {
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required." });
+    }
+    const token = jwt.sign({ email, role: 'customer' }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ success: true, token, role: 'customer', email });
+  }
+
+  return res.status(400).json({ success: false, message: "Invalid role specified." });
+});
+
+// Public Product Routes
+app.get('/api/products', (req, res) => {
+  res.json(products);
+});
+
+// Public Order Placement
+app.post('/api/orders', (req, res) => {
+  const { customer, items, total, paymentMethod } = req.body;
+  if (!customer || !items || items.length === 0) {
+    return res.status(400).json({ success: false, message: "Invalid order details." });
+  }
+
+  const newOrder = {
+    id: 'ORD-' + Date.now(),
+    customer,
+    items,
+    total,
+    paymentMethod,
+    status: 'Pending',
+    createdAt: new Date()
+  };
+
+  orders.unshift(newOrder);
+
+  // Return WhatsApp link payload
+  let itemListStr = items.map(i => `• ${i.name} (${i.qty}kg) - ₹${i.price * i.qty}`).join('\n');
+  let waMessage = `*NEW ORDER ALERT - A B Karnataka Fish Stall*\n\n` +
+    `*Order ID:* ${newOrder.id}\n` +
+    `*Customer Name:* ${customer.name}\n` +
+    `*Phone:* ${customer.phone}\n` +
+    `*Address:* ${customer.address}\n` +
+    `*Payment Method:* ${paymentMethod}\n\n` +
+    `*Items Ordered:*\n${itemListStr}\n\n` +
+    `*Total Amount:* ₹${total}`;
+
+  const waUrl = `https://wa.me/${OWNER_PHONE}?text=${encodeURIComponent(waMessage)}`;
+
+  res.json({ 
+    success: true, 
+    orderId: newOrder.id, 
+    whatsappUrl: waUrl,
+    message: "Order placed successfully! Order notification queued for store owner." 
+  });
+});
+
+// Protected Admin API Routes
+app.get('/api/admin/orders', authenticateOwner, (req, res) => {
+  res.json(orders);
+});
+
+app.post('/api/admin/products', authenticateOwner, (req, res) => {
+  const { name, price, inStock, image } = req.body;
+  const newProduct = {
+    id: Date.now(),
+    name,
+    price: parseFloat(price),
+    inStock: Boolean(inStock),
+    image
+  };
+  products.push(newProduct);
+  res.json({ success: true, product: newProduct });
+});
+
+app.put('/api/admin/products/:id', authenticateOwner, (req, res) => {
+  const id = parseInt(req.params.id);
+  const index = products.findIndex(p => p.id === id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: "Product not found." });
+  }
+
+  products[index] = { ...products[index], ...req.body };
+  res.json({ success: true, product: products[index] });
+});
+
+app.delete('/api/admin/products/:id', authenticateOwner, (req, res) => {
+  const id = parseInt(req.params.id);
+  products = products.filter(p => p.id !== id);
+  res.json({ success: true, message: "Product deleted." });
+});
+
+// Serve Single Page Application
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Owner Email configured as: ${OWNER_EMAIL}`);
+});
+
+```
+### 4. public/index.html
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A B Karnataka Fish Stall - Fresh Catch Daily</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="https://share.google/IbxEhleMrUJzIce6G" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <img src="https://share.google/IbxEhleMrUJzIce6G" alt="Logo" class="logo-img" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3082/3082060.png'">
+        <span class="brand-name">A B Karnataka Fish Stall</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#hero">Home</a>
+        <a href="#products">Fresh Fish</a>
+        <a href="#checkout">Cart & Checkout</a>
+        <span id="user-status-badge" class="badge text-hidden">Logged In</span>
+        <button id="admin-panel-btn" class="admin-nav-btn hidden" onclick="toggleAdminView()">Owner Dashboard</button>
+        <button id="logout-btn" class="logout-btn hidden" onclick="handleLogout()">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Login Overlay / Dual Row Login Form -->
+  <section id="auth-section" class="auth-wrapper">
+    <div class="auth-container">
+      <h2>Welcome to A B Karnataka Fish Stall</h2>
+      <p class="auth-subtitle">Please select your login type to enter the marketplace</p>
+
+      <!-- Row 1: Admin / Owner Login -->
+      <div class="login-row admin-row">
+        <div class="row-header">
+          <i class="fa-solid fa-user-shield"></i>
+          <h3>Row 1: Admin / Owner Login</h3>
+        </div>
+        <form id="admin-login-form" onsubmit="handleLogin(event, 'admin')">
+          <div class="form-group">
+            <input type="email" id="admin-email" placeholder="Owner Email ID" required>
+          </div>
+          <div class="form-group">
+            <input type="password" id="admin-password" placeholder="Password (admin123)" required>
+          </div>
+          <button type="submit" class="btn btn-admin">Login as Store Owner</button>
+        </form>
+      </div>
+
+      <div class="divider">OR</div>
+
+      <!-- Row 2: Customer Login -->
+      <div class="login-row customer-row">
+        <div class="row-header">
+          <i class="fa-solid fa-cart-shopping"></i>
+          <h3>Row 2: Customer Login</h3>
+        </div>
+        <form id="customer-login-form" onsubmit="handleLogin(event, 'customer')">
+          <div class="form-group">
+            <input type="email" id="customer-email" placeholder="Enter Your Email ID" required>
+          </div>
+          <div class="form-group">
+            <input type="password" id="customer-password" placeholder="Enter Password" required>
+          </div>
+          <button type="submit" class="btn btn-customer">Login as Customer</button>
+        </form>
+      </div>
+
+      <div id="auth-error-msg" class="error-msg hidden"></div>
+    </div>
+  </section>
+
+  <!-- Main Storefront Application -->
+  <main id="app-content" class="hidden">
+
+    <!-- Hero Section -->
+    <section id="hero" class="hero-section">
+      <div class="hero-overlay">
+        <h1>A B Karnataka Fish Stall - Fresh Catch Daily</h1>
+        <p>Premium coastal & freshwater fish delivered fresh to your doorstep.</p>
+        <a href="#products" class="btn btn-primary hero-btn">Shop Now</a>
+      </div>
+    </section>
+
+    <!-- Product Section & Carousel -->
+    <section id="products" class="products-section">
+      <div class="section-header">
+        <h2>Today's Fresh Stock</h2>
+        <p>Scroll horizontally to view our available coastal catches</p>
+      </div>
+      
+      <div class="carousel-wrapper">
+        <button class="carousel-arrow left-arrow" onclick="scrollCarousel(-300)"><i class="fa-solid fa-chevron-left"></i></button>
+        <div class="product-carousel" id="product-carousel-container">
+          <!-- Product cards rendered dynamically -->
+        </div>
+        <button class="carousel-arrow right-arrow" onclick="scrollCarousel(300)"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </section>
+
+    <!-- Cart & Checkout Section -->
+    <section id="checkout" class="checkout-section">
+      <div class="container grid-2-col">
+        
+        <!-- Cart Overview -->
+        <div class="cart-box">
+          <h3><i class="fa-solid fa-basket-shopping"></i> Your Shopping Basket</h3>
+          <div id="cart-items-container" class="cart-items">
+            <p class="empty-cart-text">Your basket is empty. Select fresh fish above to start ordering!</p>
+          </div>
+          <div class="cart-summary">
+            <div class="summary-line">
+              <span>Total Weight / Subtotal:</span>
+              <strong id="cart-total-price">₹0</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Checkout Form -->
+        <div class="checkout-box">
+          <h3><i class="fa-solid fa-truck-fast"></i> Delivery & Payment Details</h3>
+          <form id="order-form" onsubmit="submitOrder(event)">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" id="cust-name" placeholder="Enter your full name" required>
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" id="cust-phone" placeholder="10-digit mobile number" pattern="[0-9]{10}" required>
+            </div>
+            <div class="form-group">
+              <label>Delivery Address</label>
+              <textarea id="cust-address" rows="3" placeholder="Door No, Street, Landmark, Area" required></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label>Payment Method</label>
+              <select id="payment-method" onchange="togglePaymentUI()" required>
+                <option value="UPI">UPI Payment (GPay, PhonePe, Paytm, BharatPe)</option>
+                <option value="COD">Cash on Delivery (COD)</option>
+              </select>
+            </div>
+
+            <!-- UPI Box -->
+            <div id="upi-qr-box" class="upi-box">
+              <p>Scan & Pay via any UPI App:</p>
+              <img id="upi-qr-code" src="" alt="UPI QR Code" class="qr-img">
+              <p class="upi-id-text">UPI ID: <strong>9876543210@upi</strong></p>
+            </div>
+
+            <button type="submit" id="place-order-btn" class="btn btn-checkout">Place Order & Notify Owner</button>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Owner Admin Management Panel (Hidden by default, strictly accessible by Owner) -->
+    <section id="admin-dashboard" class="admin-section hidden">
+      <div class="container">
+        <div class="admin-header">
+          <h2><i class="fa-solid fa-user-gear"></i> Owner Dashboard & Store Management</h2>
+          <span class="owner-tag">Authenticated as: <strong id="authenticated-owner-email"></strong></span>
+        </div>
+
+        <div class="grid-2-col">
+          <!-- Inventory Editor -->
+          <div class="admin-card">
+            <h3>Add New Fish Item</h3>
+            <form id="add-product-form" onsubmit="addNewProduct(event)">
+              <div class="form-group">
+                <input type="text" id="new-p-name" placeholder="Fish Name (e.g., King Fish)" required>
+              </div>
+              <div class="form-group">
+                <input type="number" id="new-p-price" placeholder="Price per Kg (₹)" required>
+              </div>
+              <div class="form-group">
+                <input type="url" id="new-p-image" placeholder="Image URL" required>
+              </div>
+              <div class="form-group checkbox-group">
+                <label><input type="checkbox" id="new-p-stock" checked> Available in Stock</label>
+              </div>
+              <button type="submit" class="btn btn-admin">Add to Marketplace</button>
+            </form>
+          </div>
+
+          <!-- Store Product Table -->
+          <div class="admin-card">
+            <h3>Manage Current Stock & Prices</h3>
+            <div class="table-responsive">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Price/Kg</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-product-list">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Customer Orders -->
+        <div class="admin-card full-width">
+          <h3>Recent Customer Orders</h3>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Address</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Payment</th>
+                </tr>
+              </thead>
+              <tbody id="admin-orders-list">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Floating WhatsApp Contact Button -->
+  <a href="https://wa.me/919876543210" class="whatsapp-float" target="_blank" title="Chat with Store Owner">
+    <i class="fa-brands fa-whatsapp"></i>
+  </a>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
+```
+### 5. public/style.css
+```css
+:root {
+  --primary-blue: #006699;
+  --secondary-teal: #00a896;
+  --dark-ocean: #028090;
+  --light-bg: #f4f9fc;
+  --white: #ffffff;
+  --dark-text: #1d2d44;
+  --grey-border: #d0e1fd;
+  --disabled-grey: #a0aab2;
+  --danger-red: #d90429;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background-color: var(--light-bg);
+  color: var(--dark-text);
+}
+
+.container {
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Navbar */
+.navbar {
+  background-color: var(--primary-blue);
+  color: var(--white);
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.nav-container {
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #fff;
+}
+
+.brand-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav-links a {
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* Authentication Screen */
+.auth-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 85vh;
+  padding: 20px;
+}
+
+.auth-container {
+  background: var(--white);
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  max-width: 500px;
+  width: 100%;
+}
+
+.auth-container h2 {
+  text-align: center;
+  color: var(--primary-blue);
+  margin-bottom: 5px;
+}
+
+.auth-subtitle {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 25px;
+}
+
+.login-row {
+  border: 2px solid var(--grey-border);
+  padding: 18px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background-color: #f8fbfe;
+}
+
+.admin-row {
+  border-color: var(--primary-blue);
+}
+
+.customer-row {
+  border-color: var(--secondary-teal);
+}
+
+.row-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--dark-text);
+}
+
+.divider {
+  text-align: center;
+  font-weight: bold;
+  color: #888;
+  margin: 10px 0;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+/* Buttons */
+.btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-admin {
+  background-color: var(--primary-blue);
+  color: white;
+}
+
+.btn-customer {
+  background-color: var(--secondary-teal);
+  color: white;
+}
+
+.btn-primary {
+  background-color: var(--secondary-teal);
+  color: white;
+  text-align: center;
+  display: inline-block;
+  width: auto;
+  padding: 12px 28px;
+  text-decoration: none;
+  border-radius: 30px;
+}
+
+.admin-nav-btn {
+  background-color: #ff9f1c;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.logout-btn {
+  background-color: var(--danger-red);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.error-msg {
+  color: var(--danger-red);
+  background-color: #ffe6e6;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 15px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Hero Section */
+.hero-section {
+  background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://i.ibb.co/1G06s1Br/Whats-App-Image-2026-09-30-at-5-21-19-AM.jpg');
+  background-size: cover;
+  background-position: center;
+  height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: white;
+}
+
+.hero-overlay h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.hero-overlay p {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+}
+
+/* Products Section & Carousel */
+.products-section {
+  padding: 50px 20px;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.section-header h2 {
+  color: var(--primary-blue);
+  font-size: 2rem;
+}
+
+.carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.product-carousel {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 10px 5px;
+  scrollbar-width: none;
+}
+
+.product-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel-arrow {
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+  position: absolute;
+}
+
+.left-arrow { left: -15px; }
+.right-arrow { right: -15px; }
+
+.product-card {
+  min-width: 260px;
+  max-width: 260px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.product-card.out-of-stock {
+  filter: grayscale(85%);
+  opacity: 0.7;
+}
+
+.product-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.product-info {
+  padding: 15px;
+}
+
+.product-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.product-price {
+  color: var(--primary-blue);
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.stock-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.in-stock-tag { background: #e6f4ea; color: #137333; }
+.out-stock-tag { background: #fce8e6; color: #c5221f; }
+
+.btn-add-cart {
+  background: var(--dark-ocean);
+  color: white;
+}
+
+.btn-add-cart:disabled {
+  background: var(--disabled-grey);
+  cursor: not-allowed;
+}
+
+/* Grid Layouts */
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+/* Checkout Section */
+.checkout-section {
+  padding: 40px 0;
+  background-color: #eef5fc;
+}
+
+.cart-box, .checkout-box, .admin-card {
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.cart-items {
+  min-height: 150px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 15px 0;
+}
+
+.cart-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.cart-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qty-btn {
+  background: #e0e0e0;
+  border: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.cart-summary {
+  border-top: 2px solid var(--grey-border);
+  padding-top: 15px;
+  font-size: 1.1rem;
+}
+
+.upi-box {
+  background: #f0f7ff;
+  border: 1px dashed var(--primary-blue);
+  padding: 15px;
+  text-align: center;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.qr-img {
+  width: 140px;
+  height: 140px;
+  margin: 10px 0;
+}
+
+.btn-checkout {
+  background-color: var(--secondary-teal);
+  color: white;
+  font-size: 1.05rem;
+}
+
+/* Admin Dashboard */
+.admin-section {
+  padding: 40px 0;
+  background: #eaf2f8;
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.owner-tag {
+  background: var(--primary-blue);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+.full-width {
+  grid-column: span 2;
+  margin-top: 25px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.admin-table th, .admin-table td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.admin-table th {
+  background-color: var(--primary-blue);
+  color: white;
+}
+
+/* WhatsApp Floating Button */
+.whatsapp-float {
+  position: fixed;
+  width: 55px;
+  height: 55px;
+  bottom: 25px;
+  right: 25px;
+  background-color: #25d366;
+  color: #fff;
+  border-radius: 50px;
+  text-align: center;
+  font-size: 30px;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .grid-2-col, .full-width {
+    grid-template-columns: 1fr;
+    grid-column: span 1;
+  }
+  .hero-overlay h1 {
+    font-size: 1.8rem;
+  }
+  .nav-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+```
+### 6. public/app.js
+```javascript
+let cart = [];
+let productsData = [];
+let authToken = localStorage.getItem('fish_stall_token') || null;
+let userRole = localStorage.getItem('fish_stall_role') || null;
+let userEmail = localStorage.getItem('fish_stall_email') || null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  checkAuthStatus();
+  fetchProducts();
+  togglePaymentUI();
+});
+
+// Check JWT Authentication State
+function checkAuthStatus() {
+  const authSection = document.getElementById("auth-section");
+  const appContent = document.getElementById("app-content");
+  const adminNavBtn = document.getElementById("admin-panel-btn");
+  const logoutBtn = document.getElementById("logout-btn");
+  const badge = document.getElementById("user-status-badge");
+
+  if (authToken) {
+    authSection.classList.add("hidden");
+    appContent
