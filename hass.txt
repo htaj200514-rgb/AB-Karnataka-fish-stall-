@@ -61,66 +61,66 @@ app.use(express.static(path.join(__dirname, 'public')));
 let products = [
   {
     id: 1,
-    name: "Fresh Indian Mackerel (Bangda)",
+    name: "MAATHI ",
     price: 280,
     inStock: true,
-    image: "https://i.ibb.co/1G06s1Br/Whats-App-Image-2026-09-30-at-5-21-19-AM.jpg"
+   image: https://i.ibb.co/j9ZVMYXk/a0986a2ab4b1a700bfcee39a7079fc9d.jpg
   },
   {
     id: 2,
     name: "Rohtas Freshwater Fish (Rohtee)",
     price: 320,
     inStock: true,
-    image: "https://i.ibb.co/yBpjnyjT/Whats-App-Image-2026-09-30-at-5-21-18-AM-2.jpg"
+    image: https://i.ibb.co/spqWSQRT/dd6b752eb69b8f7aee07cfb565dc46ae.jpg
   },
   {
     id: 3,
     name: "King Fish / Seer Fish (Anjal)",
     price: 850,
     inStock: true,
-    image: "https://i.ibb.co/8D37QmKD/Whats-App-Image-2026-09-30-at-5-21-18-AM-1.jpg"
+    image: https://i.ibb.co/1Y9h8zq1/b696d11927e34ba142bd355b9d6c2d9b.jpg
   },
   {
     id: 4,
     name: "Silver Pomfret (Manji)",
     price: 950,
     inStock: true,
-    image: "https://i.ibb.co/S70yF62y/Whats-App-Image-2026-09-30-at-5-21-18-AM.jpg"
+    image: https://i.ibb.co/PsfGFBF1/ed01c9589411aefd16be14c556acde80.jpg
   },
   {
     id: 5,
     name: "Red Snapper (Rani Meenu)",
     price: 480,
     inStock: true,
-    image: "https://i.ibb.co/fVhN2p65/Whats-App-Image-2026-09-30-at-5-21-17-AM-2.jpg"
+    image: https://i.ibb.co/JRZJ24jC/2f4e9d873cdf09c728f99c4304863cae.jpg
   },
   {
     id: 6,
     name: "Hilsa / Ilish",
     price: 1100,
     inStock: true,
-    image: "https://i.ibb.co/xnFVrbK/Whats-App-Image-2026-09-30-at-5-21-17-AM-1.jpg"
+    image: https://i.ibb.co/TMj5Zd9S/0c952b6bac1742a7b6305ae24424bf26.jpg
   },
   {
     id: 7,
     name: "Milkfish (Poomeen)",
     price: 360,
     inStock: false,
-    image: "https://i.ibb.co/dwS0fFSN/Whats-App-Image-2026-09-30-at-5-21-17-AM.jpg"
+    image: https://i.ibb.co/b55mKTjp/877c47ef1a57db0400a3ba36dc69a76a.jpg
   },
   {
     id: 8,
     name: "Small Catfish (Tengra)",
     price: 300,
     inStock: true,
-    image: "https://i.ibb.co/Mk1SjgQ9/Whats-App-Image-2026-09-30-at-5-21-16-AM-1.jpg"
+    image: https://i.ibb.co/gbMTMMYL/e98e72b1d5b7bf1f5960c97b852cc248.jpg	````z
   },
   {
     id: 9,
     name: "Freshwater Anchovies (Nethili)",
     price: 240,
     inStock: true,
-    image: "https://i.ibb.co/cKymb5mN/Whats-App-Image-2026-09-30-at-5-21-16-AM.jpg"
+    image: https://i.ibb.co/Q7knwYgd/803fa98dce0c8fe40512e5a1ad99ced0.jpg
   }
 ];
 
